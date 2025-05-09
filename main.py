@@ -1,16 +1,9 @@
-import matplotlib.pyplot as plt
-import torch
-import torch.nn as nn
-import torch.optim as optim
 from torchvision import transforms
-from torch.utils.data import DataLoader
-from torch.utils.data import random_split
-from sklearn.metrics import accuracy_score, f1_score, confusion_matrix
 
 #Moje importy
-from DataLoadAndProcessing.DataLoadClass import DataLoadClass
-from Classification.DumpDataset import DumpDataset
 from Classification.DumpCNN import DumpCNN
+from Classification.DumpDataset import DumpDataset
+from Classification.Training import ModelTrainer
 
 
 if __name__ == '__main__':
@@ -36,98 +29,31 @@ if __name__ == '__main__':
     
     dump_dataset = DumpDataset(image_dir=data_storage_path, transform=transform)
     
-    train_size = int(0.8 * len(dump_dataset))
-    val_size = len(dump_dataset) - train_size
-    train_dataset, val_dataset = random_split(dump_dataset, [train_size, val_size])
-
-    train_loader = DataLoader(train_dataset, batch_size=32, shuffle=True)
-    val_loader = DataLoader(val_dataset, batch_size=32, shuffle=False)
+    model_params = {
+        "input_shape": (3, image_pix, image_pix),
+        "num_classes": 2,
+        "dropout_rate": 0.45,
+        "num_conv_layers": 3,
+        "hidden_dim": 256,
+        "use_dropout": True,
+        "use_pool": True
+    }
     
-    model = DumpCNN(input_shape=(3, image_pix, image_pix), num_classes=2, dropout_rate=0.45)
+    training_params = {
+        "epochs": 100,
+        "train_split": 0.8,
+        "batch_size": 32,
+        "learning_rate": 0.0005,
+        "patience": 10
+    }
     
-    criterion = nn.CrossEntropyLoss()
-    optimizer = torch.optim.Adam(model.parameters(), lr=0.0005)
+    print("vytvaram trainer")
+    trainer = ModelTrainer(
+        dataset=dump_dataset, 
+        model_class=DumpCNN, 
+        model_params=model_params, 
+        training_params=training_params
+    )
     
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    model.to(device)
-
-    patience = 10
-    best_loss = float('inf')
-    epochs_no_improve = 0
-    
-    plt.ion()
-    fig, ax = plt.subplots()
-    train_losses = []
-    validation_losses = []
-    line1, = ax.plot([], [], 'orange', label='Training loss')
-    line2, = ax.plot([], [], 'blue', label='Validation loss')
-    ax.set_xlabel('Epoch')
-    ax.set_ylabel('Loss')
-    ax.legend()
-
-    for epoch in range(100):
-        model.train()
-        running_loss = 0.0
-        for images, labels in train_loader:
-            images, labels = images.to(device), labels.to(device)
-            outputs = model(images)
-            loss = criterion(outputs, labels)
-
-            optimizer.zero_grad()
-            loss.backward()
-            optimizer.step()
-            running_loss += loss.item()
-        
-        epoch_loss = running_loss / len(train_loader)
-        print(f"Epoch [{epoch+1}/100], Train Loss: {epoch_loss:.4f}")
-
-        model.eval()
-        val_loss = 0.0
-        with torch.no_grad():
-            for images, labels in val_loader:
-                images, labels = images.to(device), labels.to(device)
-                outputs = model(images)
-                loss = criterion(outputs, labels)
-                val_loss += loss.item()
-        val_loss /= len(val_loader)
-        print(f"Validation Loss: {val_loss:.4f}")
-        
-        train_losses.append(epoch_loss)
-        validation_losses.append(val_loss)
-
-        line1.set_data(range(len(train_losses)), train_losses)
-        line2.set_data(range(len(validation_losses)), validation_losses)
-        ax.relim()
-        ax.autoscale_view()
-        fig.canvas.draw()
-        fig.canvas.flush_events()
-
-        if val_loss < best_loss:
-            best_loss = val_loss
-            epochs_no_improve = 0
-            torch.save(model.state_dict(), "best_model.pth")
-        else:
-            epochs_no_improve += 1
-
-        if epochs_no_improve >= patience:
-            print("Early stopping!")
-            break
-        
-    model.load_state_dict(torch.load("best_model.pth"))        
-    model.eval()
-    all_preds = []
-    all_labels = []
-    with torch.no_grad():
-        for images, labels in val_loader:
-            images, labels = images.to(device), labels.to(device)
-            outputs = model(images)
-            _, predicted = torch.max(outputs.data, 1)
-            all_preds.extend(predicted.cpu().numpy())
-            all_labels.extend(labels.cpu().numpy())
-    
-    plt.ioff()
-    plt.show()
-
-    print("Accuracy:", accuracy_score(all_labels, all_preds))
-    print("F1 Score:", f1_score(all_labels, all_preds))
-    print("Confusion Matrix:\n", confusion_matrix(all_labels, all_preds))
+    print("zacinam trenovat")
+    trainer.train()
