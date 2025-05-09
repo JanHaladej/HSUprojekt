@@ -1,16 +1,9 @@
-import matplotlib.pyplot as plt
-import torch
-import torch.nn as nn
-import torch.optim as optim
 from torchvision import transforms
-from torch.utils.data import DataLoader
-from torch.utils.data import random_split
-from sklearn.metrics import accuracy_score, f1_score, confusion_matrix
 
 #Moje importy
-from DataLoadAndProcessing.DataLoadClass import DataLoadClass
-from Classification.DumpDataset import DumpDataset
 from Classification.DumpCNN import DumpCNN
+from Classification.DumpDataset import DumpDataset
+from Classification.Training import ModelTrainer
 
 
 if __name__ == '__main__':
@@ -89,17 +82,31 @@ if __name__ == '__main__':
     
     dump_dataset = DumpDataset(image_dir=data_storage_path, transform=transform)
     
-    train_size = int(0.8 * len(dump_dataset))
-    val_size = len(dump_dataset) - train_size
-    train_dataset, val_dataset = random_split(dump_dataset, [train_size, val_size])
-
-    train_loader = DataLoader(train_dataset, batch_size=32, shuffle=True)
-    val_loader = DataLoader(val_dataset, batch_size=32, shuffle=False)
+    model_params = {
+        "input_shape": (3, image_pix, image_pix),
+        "num_classes": 2,
+        "dropout_rate": 0.45,
+        "num_conv_layers": 3,
+        "hidden_dim": 256,
+        "use_dropout": True,
+        "use_pool": True
+    }
     
-    model = DumpCNN(input_shape=(3, image_pix, image_pix), num_classes=2, dropout_rate=0.45)
+    training_params = {
+        "epochs": 100,
+        "train_split": 0.8,
+        "batch_size": 32,
+        "learning_rate": 0.0005,
+        "patience": 10
+    }
     
-    criterion = nn.CrossEntropyLoss()
-    optimizer = torch.optim.Adam(model.parameters(), lr=0.0005)
+    print("vytvaram trainer")
+    trainer = ModelTrainer(
+        dataset=dump_dataset, 
+        model_class=DumpCNN, 
+        model_params=model_params, 
+        training_params=training_params
+    )
     
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model.to(device)
@@ -184,3 +191,5 @@ if __name__ == '__main__':
     print("Accuracy:", accuracy_score(all_labels, all_preds))
     print("F1 Score:", f1_score(all_labels, all_preds))
     print("Confusion Matrix:\n", confusion_matrix(all_labels, all_preds))
+    print("zacinam trenovat")
+    trainer.train()
