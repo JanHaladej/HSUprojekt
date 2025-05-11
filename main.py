@@ -1,4 +1,5 @@
 from torchvision import transforms
+from itertools import product
 
 #Moje importy
 from Classification.DumpCNN import DumpCNN
@@ -68,16 +69,12 @@ if __name__ == '__main__':
     #data_load_class.normalizeData()
     #data_load_class.exportDataAsImages('Red', 'Green', 'Blue')
     
+
     image_pix = 256
-    
     transform = transforms.Compose([
-        #cierno biele
-        #transforms.Grayscale(num_output_channels=1),
         transforms.Resize((image_pix, image_pix)),
         transforms.ToTensor(),
-        transforms.Normalize([0.5]*3, [0.5]*3)
-        #cierno biele
-        #transforms.Normalize(mean=[0.5], std=[0.5]),
+        transforms.Normalize([0.5]*3, [0.5]*3),
     ])
     
     dump_dataset = DumpDataset(image_dir=data_storage_path, transform=transform)

@@ -2,6 +2,8 @@ import os
 import torch
 import matplotlib.pyplot as plt
 import json
+import time
+import shutil
 from torch import nn, optim
 from sklearn.metrics import accuracy_score, f1_score, confusion_matrix
 from torch.utils.data import random_split, DataLoader
@@ -13,7 +15,15 @@ class ModelTrainer:
         self.model_params = model_params
         self.training_params = training_params
         
-        param_summary = f"conv{model_params.get('num_conv_layers', '')}_do{int(model_params.get('use_dropout', False))}_lr{training_params.get('learning_rate', 0):.0e}_bs{training_params.get('batch_size', 0)}"
+        all_params = {**model_params, **training_params}
+
+        param_summary = "_".join(
+            f"{k}={v:.0e}" if isinstance(v, float) else f"{k}={v}"
+            for k, v in all_params.items()
+            if k not in ("input_shape", "num_classes")
+        )
+        
+        #param_summary = f"conv{model_params.get('num_conv_layers', '')}_do{int(model_params.get('use_dropout', False))}_lr{training_params.get('learning_rate', 0):.0e}_bs{training_params.get('batch_size', 0)}"
         self.output_dir = os.path.join(output_dir, param_summary)
         os.makedirs(self.output_dir, exist_ok=True)
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -102,6 +112,10 @@ class ModelTrainer:
         plt.close()
 
     def _final_evaluation(self):
+        run_name = time.strftime("run_%Y%m%d_%H%M%S")
+        run_output_dir = os.path.join(self.output_dir, run_name)
+        os.makedirs(run_output_dir, exist_ok=True)
+
         self.model.load_state_dict(torch.load(os.path.join(self.output_dir, "best_model.pth")))
         self.model.eval()
         all_preds = []
@@ -119,18 +133,25 @@ class ModelTrainer:
         f1 = f1_score(all_labels, all_preds, average='weighted')
         cm = confusion_matrix(all_labels, all_preds)
 
-        with open(os.path.join(self.output_dir, "metrics.txt"), "w") as f:
+        with open(os.path.join(run_output_dir, "metrics.txt"), "w") as f:
             f.write(f"Accuracy: {acc:.4f}\n")
             f.write(f"F1 Score: {f1:.4f}\n")
             f.write(f"Confusion Matrix:\n{cm}\n")
 
-        with open(os.path.join(self.output_dir, "params.json"), "w") as f:
+        with open(os.path.join(run_output_dir, "params.json"), "w") as f:
             json.dump({
                 "model_params": self.model_params,
                 "training_params": self.training_params
             }, f, indent=4)
+            
+        shutil.copy(os.path.join(self.output_dir, "best_model.pth"), os.path.join(run_output_dir, "best_model.pth"))
+        shutil.copy(os.path.join(self.output_dir, "loss_curve.png"), os.path.join(run_output_dir, "loss_curve.png"))
+
+        os.remove(os.path.join(self.output_dir, "best_model.pth"))
+        os.remove(os.path.join(self.output_dir, "loss_curve.png"))
 
         print("Final Evaluation:")
+        print(f"Saved to: {run_output_dir}")
         print(f"Accuracy: {acc:.4f}")
         print(f"F1 Score: {f1:.4f}")
         print(f"Confusion Matrix:\n{cm}")
