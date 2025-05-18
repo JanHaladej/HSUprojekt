@@ -35,7 +35,7 @@ class ModelTrainer:
         val_size = len(self.dataset) - train_size
         train_dataset, val_dataset = random_split(self.dataset, [train_size, val_size])
         
-        num_workers = os.cpu_count() or 4
+        num_workers = 3
 
         self.train_loader = DataLoader(train_dataset, batch_size=self.training_params["batch_size"], shuffle=True, num_workers=num_workers)
         self.val_loader = DataLoader(val_dataset, batch_size=self.training_params["batch_size"], shuffle=False, num_workers=num_workers)

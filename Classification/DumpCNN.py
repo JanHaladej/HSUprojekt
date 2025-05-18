@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 class DumpCNN(nn.Module):
-    def __init__(self, input_shape=(3, 64, 64), num_classes=3, use_dropout=True, dropout_rate=0.5, use_pool=True, num_conv_layers=3, hidden_dim=256):
+    def __init__(self, input_shape=(3, 64, 64), num_classes=3, use_dropout=True, dropout_rate=0.5, use_pool=True, num_conv_layers=3, hidden_dim=256, conv_drop_rate=0.35):
         super().__init__()
         channels, height, width = input_shape
 
@@ -27,6 +27,7 @@ class DumpCNN(nn.Module):
         
         if self.use_dropout:
             self.dropout = nn.Dropout(dropout_rate)
+            self.conv_dropout = nn.Dropout2d(conv_drop_rate)
 
         with torch.no_grad():
             dummy_input = torch.zeros(1, *input_shape)
@@ -39,6 +40,8 @@ class DumpCNN(nn.Module):
     def _forward_features(self, x):
         for conv, bn in zip(self.conv_layers, self.bn_layers):
             x = F.relu(bn(conv(x)))
+            if self.use_dropout:
+                x = self.conv_dropout(x)
             if self.use_pool:
                 x = self.pool(x)
         return x

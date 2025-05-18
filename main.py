@@ -138,6 +138,7 @@ if __name__ == '__main__':
         epoch_loss = running_loss / len(train_loader)
         print(f"Epoch [{epoch+1}/100], Train Loss: {epoch_loss:.4f}")
 
+
         model.eval()
         val_loss = 0.0
         with torch.no_grad():
