@@ -14,7 +14,7 @@ class DumpCNN(nn.Module):
         self.bn_layers = nn.ModuleList()
 
         in_channels = channels
-        out_channels = 16
+        out_channels = 32
 
         for i in range(num_conv_layers):
             self.conv_layers.append(nn.Conv2d(in_channels, out_channels, kernel_size=3, padding=1))
@@ -35,11 +35,12 @@ class DumpCNN(nn.Module):
             self.flattened_size = out.view(1, -1).shape[1]
 
         self.fc1 = nn.Linear(self.flattened_size, self.hidden_dim)
+        #self.fc_mid = nn.Linear(self.hidden_dim, self.hidden_dim//2)
         self.fc2 = nn.Linear(self.hidden_dim, num_classes)
 
     def _forward_features(self, x):
         for conv, bn in zip(self.conv_layers, self.bn_layers):
-            x = F.relu(bn(conv(x)))
+            x = F.gelu(bn(conv(x)))
             if self.use_dropout:
                 x = self.conv_dropout(x)
             if self.use_pool:
@@ -50,6 +51,10 @@ class DumpCNN(nn.Module):
         x = self._forward_features(x)
         x = x.view(x.size(0), -1)
         if self.use_dropout:
-            x = self.dropout(F.relu(self.fc1(x)))
+            x = self.dropout(F.gelu(self.fc1(x)))
+            #x = self.dropout(F.relu(self.fc_mid(x)))
+        else:
+            x = F.gelu(self.fc1(x))
+            #x = F.relu(self.fc_mid(x))
         x = self.fc2(x)
         return x
